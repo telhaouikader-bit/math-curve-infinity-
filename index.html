@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MathCurve Infinity Path</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+        :root {
+            --bg-color: #050a10;
+            --grid-color: rgba(40, 200, 130, 0.1);
+            --primary-green: #00ff88;
+            --danger-red: #ff2a2a;
+            --bonus-gold: #ffd700;
+            --ui-font: 'Orbitron', sans-serif;
+            --mono-font: 'Share Tech Mono', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none; /* Prevents scrolling on mobile */
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-color);
+            overflow: hidden;
+            font-family: var(--ui-font);
+            color: white;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* UI Overlay Layer */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+        }
+
+        /* HUD */
+        .hud-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .value-container {
+            text-align: left;
+        }
+
+        .label {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+
+        #score-display {
+            font-family: var(--mono-font);
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary-green);
+            text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+            transition: color 0.3s;
+        }
+
+        #speed-indicator {
+            text-align: right;
+        }
+
+        .speed-bar {
+            width: 100px;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            margin-top: 5px;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .speed-fill {
+            height: 100%;
+            background: var(--bonus-gold);
+            width: 0%;
+            transition: width 0.2s;
+        }
+
+        /* Start / Game Over Screens */
+        .modal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 10, 16, 0.85);
+            backdrop-filter: blur(5px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+            z-index: 10;
+            transition: opacity 0.3s;
+        }
+
+        .hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin: 0 0 10px 0;
+            background: linear-gradient(90deg, #fff, var(--primary-green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-transform: uppercase;
+            text-align: center;
+            line-height: 1;
+        }
+
+        p.desc {
+            font-family: var(--mono-font);
+            color: #ccc;
+            text-align: center;
+            max-width: 80%;
+            line-height: 1.5;
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            background: transparent;
+            border: 2px solid var(--primary-green);
+            color: var(--primary-green);
+            padding: 15px 40px;
+            font-family: var(--ui-font);
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.2);
+        }
+
+        .btn:hover, .btn:active {
+            background: var(--primary-green);
+            color: var(--bg-color);
+            box-shadow: 0 0 25px rgba(0, 255, 136, 0.6);
+        }
+
+        .legend {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            font-size: 0.8rem;
+            color: #aaa;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        /* Floating text animation */
+        .floater {
+            position: absolute;
+            font-family: var(--mono-font);
+            font-weight: bold;
+            pointer-events: none;
+            animation: floatUp 1s forwards;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-50px) scale(1.2); opacity: 0; }
+        }
+
+        /* Instructions */
+        .instructions {
+            margin-top: 20px;
+            font-size: 0.8rem;
+            color: #666;
+            border-top: 1px solid #333;
+            padding-top: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- UI Layer -->
+        <div id="ui-layer">
+            <div class="hud-top">
+                <div class="value-container">
+                    <div class="label">CURRENT VALUE</div>
+                    <div id="score-display">1.00</div>
+                </div>
+                <div id="speed-indicator">
+                    <div class="label">MARKET SPEED</div>
+                    <div class="speed-bar"><div class="speed-fill" id="speed-fill"></div></div>
+                </div>
+            </div>
+            <!-- Bottom hints could go here -->
+        </div>
+
+        <!-- Start Screen -->
+        <div id="start-screen" class="modal">
+            <h1>MathCurve<br>Infinity Path</h1>
+            <p class="desc">Control the chart line. Collect operators to grow your value. Avoid Zero.</p>
+            
+            <div class="legend">
+                <div class="legend-item"><div class="dot" style="background:#00ff88"></div>+/- (60%)</div>
+                <div class="legend-item"><div class="dot" style="background:#00ccff"></div>* / √ ^ (30%)</div>
+                <div class="legend-item"><div class="dot" style="background:#ffd700"></div>π (3%)</div>
+                <div class="legend-item"><div class="dot" style="background:#ff2a2a"></div>0 (7%)</div>
+            </div>
+
+            <button class="btn" id="start-btn">Start Trading</button>
+            <div class="instructions">Drag UP / DOWN to move</div>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="game-over-screen" class="modal hidden">
+            <h1 style="background: linear-gradient(90deg, #fff, #ff2a2a); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Market Crash</h1>
+            <p class="desc">Your value was reset to zero or went negative.</p>
+            <div class="value-container" style="text-align: center; margin-bottom: 20px;">
+                <div class="label">FINAL VALUE</div>
+                <div id="final-score" style="font-family: var(--mono-font); font-size: 2.5rem; color: white;">0</div>
+            </div>
+            <button class="btn" id="restart-btn">Try Again</button>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * MathCurve Infinity Path
+         * Logic for Canvas rendering, Physics, Math, and State Management
+         */
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d', { alpha: false }); // Optimize for no transparency on base
+        
+        // UI Elements
+        const scoreEl = document.getElementById('score-display');
+        const speedFill = document.getElementById('speed-fill');
+        const startScreen = document.getElementById('start-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const finalScoreEl = document.getElementById('final-score');
+        const startBtn = document.getElementById('start-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        const uiLayer = document.getElementById('ui-layer');
+
+        // Game Constants
+        const BASE_SPEED = 300; // Pixels per second
+        const HEAD_OFFSET_X = 100; // Where the player head sits on screen (left side)
+        const SPAWN_RATE_BASE = 0.02; // Probability per frame
+        const OPERATOR_SIZE = 20;
+        const MAX_HISTORY = 1000; // Max length of curve tail
+
+        // Colors
+        const COL_GREEN = '#00ff88';
+        const COL_RED = '#ff2a2a';
+        const COL_BLUE = '#00ccff';
+        const COL_GOLD = '#ffd700';
+        const COL_ZERO = '#ff0000';
+        const COL_BG = '#050a10';
+
+        // Game State
+        let isPlaying = false;
+        let lastTime = 0;
+        let score = 1;
+        let speed = BASE_SPEED;
+        let distanceTraveled = 0;
+        
+        // Player State
+        let playerY = 0; // Normalized 0 to 1
+        let targetY = 0; // Input target
+        const curvePath = []; // Array of {x, y, value} for rendering tail
+
+        // Entities
+        let operators = [];
+        let particles = [];
+
+        // Input
+        let isDragging = false;
+
+        // --- Core Systems ---
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            // Reset player Y to center if first load
+            if (playerY === 0) playerY = 0.5;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        class Operator {
+            constructor() {
+                this.x = canvas.width + 50; // Spawn off screen
+                this.y = Math.random() * (canvas.height - 100) + 50; // Padding top/bottom
+                this.active = true;
+                
+                // Determine type based on probabilities
+                const rand = Math.random();
+                
+                if (rand < 0.60) {
+                    // Plus or Minus (50/50 split within this 60%)
+                    this.type = Math.random() < 0.5 ? 'plus' : 'minus';
+                    this.symbol = this.type === 'plus' ? '+' : '-';
+                    this.color = COL_GREEN;
+                } else if (rand < 0.90) {
+                    // Complex Operators (30% total)
+                    const subRand = Math.random();
+                    if (subRand < 0.35) { this.type = 'multiply'; this.symbol = '×'; this.color = COL_BLUE; }
+                    else if (subRand < 0.70) { this.type = 'divide'; this.symbol = '÷'; this.color = COL_BLUE; }
+                    else if (subRand < 0.85) { this.type = 'power'; this.symbol = '^'; this.color = COL_BLUE; }
+                    else { this.type = 'root'; this.symbol = '√'; this.color = COL_BLUE; }
+                } else if (rand < 0.97) {
+                    // Zero (7%)
+                    this.type = 'zero';
+                    this.symbol = '0';
+                    this.color = COL_ZERO;
+                } else {
+                    // Pi (3%)
+                    this.type = 'pi';
+                    this.symbol = 'π';
+                    this.color = COL_GOLD;
+                }
+            }
+
+            update(dt) {
+                this.x -= speed * dt;
+                if (this.x < -50) this.active = false;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                
+                // Glow
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = this.color;
+                
+                // Circle bg
+                ctx.beginPath();
+                ctx.arc(0, 0, OPERATOR_SIZE, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = this.color;
+                ctx.stroke();
+
+                // Text
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 20px "Share Tech Mono"';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.symbol, 0, 1); // slight offset adjustment
+
+                ctx.restore();
+            }
+        }
+
+        class Particle {
+            constructor(x, y, color, text) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.vx = (Math.random() - 0.5) * 200;
+                this.vy = (Math.random() - 0.5) * 200;
+                this.life = 1.0;
+                this.text = text; // If text exists, it's a floating label
+                this.isText = !!text;
+            }
+
+            update(dt) {
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+                this.life -= dt * 1.5;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = this.life;
+                if (this.isText) {
+                    ctx.fillStyle = this.color;
+                    ctx.font = 'bold 24px "Orbitron"';
+                    ctx.strokeStyle = 'black';
+                    ctx.lineWidth = 3;
+                    ctx.strokeText(this.text, this.x, this.y);
+                    ctx.fillText(this.text, this.x, this.y);
+                } else {
+                    ctx.fillStyle = this.color;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+        }
+
+        // --- Input Handling ---
+
+        function handleInput(y) {
+            // Clamp Y
+            targetY = Math.max(0, Math.min(1, y / canvas.height));
+        }
+
+        // Touch
+        canvas.addEventListener('touchstart', (e) => {
+            isDragging = true;
+            handleInput(e.touches[0].clientY);
+        }, {passive: false});
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault(); // Stop scrolling
+            if (isPlaying) handleInput(e.touches[0].clientY);
+        }, {passive: false});
+
+        canvas.addEventListener('touchend', () => { isDragging = false; });
+
+        // Mouse
+        canvas.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            handleInput(e.clientY);
+        });
+        window.addEventListener('mousemove', (e) => {
+            if (isDragging && isPlaying) handleInput(e.clientY);
+        });
+        window.addEventListener('mouseup', () => { isDragging = false; });
+
+
+        // --- Game Logic ---
+
+        function spawnFloatingText(text, x, y, color) {
+            // We render text via DOM for crisp text or Canvas. 
+            // Using DOM elements for UI overlays is requested for semantic HTML, 
+            // but for high frequency particles, Canvas is faster. 
+            // However, for a clean "score pop", let's stick to Canvas particles 
+            // to keep it self-contained in the game loop without DOM thrashing.
+            particles.push(new Particle(x, y, color, text));
+        }
+
+        function applyMath(operator) {
+            const oldScore = score;
+            let textStr = "";
+            let color = "#fff";
+
+            switch (operator.type) {
+                case 'plus':
+                    score += 5;
+                    textStr = "+5";
+                    color = COL_GREEN;
+                    break;
+                case 'minus':
+                    score -= 5;
+                    textStr = "-5";
+                    color = COL_RED;
+                    break;
+                case 'multiply':
+                    score *= 1.5; // 50% increase
+                    textStr = "x1.5";
+                    color = COL_BLUE;
+                    break;
+                case 'divide':
+                    score /= 1.5; // Reduce by 1/3
+                    textStr = "÷1.5";
+                    color = COL_BLUE;
+                    break;
+                case 'power':
+                    // Exponential. Cap to prevent Infinity too fast
+                    score = Math.pow(score, 1.5); 
+                    textStr = "^1.5";
+                    color = COL_BLUE;
+                    break;
+                case 'root':
+                    score = Math.sqrt(score);
+                    textStr = "√";
+                    color = COL_BLUE;
+                    break;
+                case 'pi':
+                    score *= 3.14159;
+                    textStr = "π x3.14";
+                    color = COL_GOLD;
+                    break;
+                case 'zero':
+                    score = 0;
+                    textStr = "RESET!";
+                    color = COL_ZERO;
+                    gameOver();
+                    break;
+            }
+
+            // Clamp min value visually for calculation stability if needed, 
+            // but allow negative for gameplay mechanic unless strictly zero.
+            // If negative, game over condition usually applies in these games, 
+            // but prompt specifically says "Zero resets... dangerous".
+            // We'll allow negative numbers but usually, going negative means you lose control or it's hard to recover.
+            // Let's add a rule: if score < 0, game over.
+            if (score < 0) {
+                score = 0;
+                gameOver();
+            }
+
+            // Visual Feedback
+            spawnFloatingText(textStr, HEAD_OFFSET_X, playerY * canvas.height, color);
+            
+            // Create explosion particles
+            for(let i=0; i<8; i++) {
+                particles.push(new Particle(HEAD_OFFSET_X, playerY * canvas.height, operator.color));
+            }
+
+            updateHUD();
+        }
+
+        function updateHUD() {
+            // Format number
+            let displayScore = score;
+            if (score > 10000) displayScore = score.toExponential(2);
+            else displayScore = Math.floor(score * 100) / 100;
+
+            scoreEl.innerText = displayScore;
+            
+            // Color shift based on value
+            if (score > 100) scoreEl.style.color = COL_GOLD;
+            else if (score < 0) scoreEl.style.color = COL_RED;
+            else scoreEl.style.color = COL_GREEN;
+
+            // Speed bar
+            // Base speed + log(score) factor
+            let speedPct = ((speed - BASE_SPEED) / 400) * 100;
+            speedFill.style.width = `${Math.min(100, Math.max(0, speedPct))}%`;
+        }
+
+        function gameOver() {
+            isPlaying = false;
+            finalScoreEl.innerText = score > 10000 ? score.toExponential(2) : score;
+            gameOverScreen.classList.remove('hidden');
+        }
+
+        function resetGame() {
+            score = 1;
+            speed = BASE_SPEED;
+            distanceTraveled = 0;
+            playerY = 0.5;
+            targetY = 0.5;
+            operators = [];
+            particles = [];
+            curvePath.length = 0; // Clear array
+            
+            // Initial curve segment
+            curvePath.push({x: HEAD_OFFSET_X, y: playerY * canvas.height});
+            
+            updateHUD();
+            isPlaying = true;
+            gameOverScreen.classList.add('hidden');
+            startScreen.classList.
